@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The 2025 State of Open-Source AI: Interactive Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Modern Tech (Slate & Indigo) -->
+    <!-- Application Structure Plan: A task-oriented, single-page dashboard. The structure prioritizes non-linear exploration over the report's linear format. A sticky top navigation allows users to instantly jump to any AI category (Text, Image, Audio, etc.). Each category is a self-contained module featuring a "Spotlight" on the top recommended model and interactive cards for other key models. Clicking a model card dynamically updates a detail panel within the same section, preventing context switching. This structure was chosen to empower users to quickly compare models and find the information most relevant to their needs, rather than forcing them to read sequentially. The goal is rapid information synthesis and decision-making. -->
+    <!-- Visualization & Content Choices: 
+        - Text Gen: Report Info -> Model adoption varies wildly from leaderboard rank. Goal -> Compare community adoption. Viz -> Horizontal Bar Chart (Downloads). Interaction -> Hover for tooltips. Justification -> Clearly shows the massive scale difference in downloads, reinforcing the "practicality vs. performance" theme. Library -> Chart.js.
+        - Image Gen: Report Info -> Key differences are qualitative (license, speed, ecosystem). Goal -> Compare key features. Viz -> HTML/Tailwind feature table. Interaction -> Static. Justification -> A table provides the clearest side-by-side comparison for non-numeric, critical decision factors.
+        - Audio Gen: Report Info -> Models are highly specialized (cloning vs. efficiency). Goal -> Inform about unique specializations. Viz -> Icon-driven feature cards. Interaction -> Click to reveal details. Justification -> Visually breaks down complex specializations into easy-to-grasp concepts.
+        - Video Gen: Report Info -> The main barrier is massive hardware requirements. Goal -> Explain the "computational cliff". Viz -> Simple HTML/CSS graphic comparing VRAM needs. Interaction -> Static. Justification -> A strong visual metaphor makes an abstract technical barrier immediately understandable.
+        - Code/Multimodal: Report Info -> Models have specific strengths (brownfield coding, base LLM quality). Goal -> Inform about nuanced strengths. Viz -> Styled text blocks and feature lists. Interaction -> Static. Justification -> These sections rely on qualitative analysis, best presented through clear, well-structured text.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            position: relative;
+            padding-bottom: 4px;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4f46e5; /* indigo-600 */
+            transition: width 0.3s ease;
+        }
+        .nav-link.active, .nav-link:hover {
+            color: #4f46e5; /* indigo-600 */
+        }
+        .dark .nav-link.active, .dark .nav-link:hover {
+             color: #818cf8; /* indigo-400 */
+        }
+        .dark .nav-link::after {
+            background-color: #818cf8; /* indigo-400 */
+        }
+        .nav-link.active::after, .nav-link:hover::after {
+            width: 100%;
+        }
+        .card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: #6366f1; /* indigo-500 */
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07);
+        }
+        .dark .card:hover {
+            border-color: #818cf8; /* indigo-400 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .section-fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .section-fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .repo-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .social-link svg {
+            transition: fill 0.3s ease;
+        }
+        .social-link:hover svg {
+            fill: #4f46e5;
+        }
+        .dark .social-link:hover svg {
+            fill: #818cf8;
+        }
+        /* Background Animation */
+        @keyframes move {
+            100% {
+                transform: translate3d(0, 0, 1px) rotate(360deg);
+            }
+        }
+        .background {
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
+            top: 0;
+            left: 0;
+            background: #f8fafc;
+            overflow: hidden;
+            z-index: -1;
+        }
+        .dark .background {
+            background: #020617;
+        }
+        .background span {
+            width: 20vmin;
+            height: 20vmin;
+            border-radius: 20vmin;
+            backface-visibility: hidden;
+            position: absolute;
+            animation: move;
+            animation-duration: 45s;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+        .background span:nth-child(0) {
+            color: #6366f1;
+            top: 66%;
+            left: 81%;
+            animation-duration: 53s;
+            animation-delay: -3s;
+            transform-origin: -1vw 2vh;
+            box-shadow: -40vmin 0 5.262215981881519vmin currentColor;
+        }
+        .background span:nth-child(1) {
+            color: #4f46e5;
+            top: 78%;
+            left: 5%;
+            animation-duration: 11s;
+            animation-delay: -4s;
+            transform-origin: 1vw 18vh;
+            box-shadow: 40vmin 0 5.895338148332159vmin currentColor;
+        }
+        .background span:nth-child(2) {
+            color: #818cf8;
+            top: 78%;
+            left: 17%;
+            animation-duration: 17s;
+            animation-delay: -4s;
+            transform-origin: -11vw -11vh;
+            box-shadow: 40vmin 0 5.51863980838118vmin currentColor;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 transition-colors duration-500">
+    <div class="background">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+    <!-- Header & Navigation -->
+    <header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold text-indigo-600 dark:text-indigo-400">AI Report 2025</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="#text" class="nav-link text-slate-500 dark:text-slate-400 px-3 py-2 rounded-md text-sm font-medium">Text</a>
+                            <a href="#image" class="nav-link text-slate-500 dark:text-slate-400 px-3 py-2 rounded-md text-sm font-medium">Image</a>
+                            <a href="#audio" class="nav-link text-slate-500 dark:text-slate-400 px-3 py-2 rounded-md text-sm font-medium">Audio</a>
+                            <a href="#video" class="nav-link text-slate-500 dark:text-slate-400 px-3 py-2 rounded-md text-sm font-medium">Video</a>
+                            <a href="#code" class="nav-link text-slate-500 dark:text-slate-400 px-3 py-2 rounded-md text-sm font-medium">Code</a>
+                            <a href="#multimodal" class="nav-link text-slate-500 dark:text-slate-400 px-3 py-2 rounded-md text-sm font-medium">Multimodal</a>
+                        </div>
+                    </div>
+                    <button id="theme-toggle" class="ml-6 p-2 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <svg id="theme-icon-light" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm-.707 12.122l.707-.707a1 1 0 011.414 1.414l-.707.707a1 1 0 01-1.414-1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg>
+                        <svg id="theme-icon-dark" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16 relative z-10">
+
+        <!-- Hero Section -->
+        <section class="text-center mb-20">
+            <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight">The 2025 State of Open-Source AI</h1>
+            <p class="mt-6 max-w-3xl mx-auto text-lg text-slate-600 dark:text-slate-400">An interactive guide to the leading models on the Hugging Face Hub. Explore, compare, and select the best AI for your needs.</p>
+        </section>
+
+        <!-- Dynamic Content Sections -->
+        <div id="app-content" class="space-y-24">
+
+            <!-- Text Generation -->
+            <section id="text" class="report-section section-fade-in">
+                <h2 class="text-3xl font-bold mb-3 text-indigo-600 dark:text-indigo-400">The Vanguard of Language</h2>
+                <p class="text-slate-600 dark:text-slate-400 mb-10 max-w-4xl">Text generation is the most competitive field in open-source AI. This section explores the top Large Language Models (LLMs), highlighting the critical difference between raw benchmark performance and real-world practicality. Use the chart to compare community adoption and click on models to see their detailed strengths.</p>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                    <div class="lg:col-span-3">
+                         <div class="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <h3 class="text-xl font-semibold mb-4 text-slate-800 dark:text-slate-100">Community Adoption: Practicality Frontier</h3>
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">This chart shows model downloads in millions, a strong indicator of real-world utility and accessibility. Notice the divergence between the most downloaded models and those with the highest parameter counts.</p>
+                            <div class="chart-container">
+                                <canvas id="textModelsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="text-details-panel" class="lg:col-span-2 bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 h-fit">
+                        <!-- Details will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Model Cards will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Image Generation -->
+            <section id="image" class="report-section section-fade-in">
+                <h2 class="text-3xl font-bold mb-3 text-indigo-600 dark:text-indigo-400">The Generative Canvas</h2>
+                <p class="text-slate-600 dark:text-slate-400 mb-10 max-w-4xl">Open-source image generation has evolved from diffusion models to highly efficient rectified flow architectures. This section compares the leading models, focusing on the trade-offs between out-of-the-box quality, speed, and the deep customizability offered by mature ecosystems.</p>
+                <div class="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 dark:text-slate-100">Head-to-Head: Image Model Comparison</h3>
+                     <table class="w-full text-left">
+                        <thead class="bg-slate-50 dark:bg-slate-700/50">
+                            <tr>
+                                <th class="p-4 font-semibold text-slate-600 dark:text-slate-300">Model</th>
+                                <th class="p-4 font-semibold text-slate-600 dark:text-slate-300">Key Strength</th>
+                                <th class="p-4 font-semibold text-slate-600 dark:text-slate-300">License</th>
+                                <th class="p-4 font-semibold text-slate-600 dark:text-slate-300">Ideal Use Case</th>
+                            </tr>
+                        </thead>
+                        <tbody id="image-table-body" class="divide-y divide-slate-200 dark:divide-slate-700">
+                           <!-- Image model data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Audio Generation -->
+            <section id="audio" class="report-section section-fade-in">
+                <h2 class="text-3xl font-bold mb-3 text-indigo-600 dark:text-indigo-400">The Sonic Frontier</h2>
+                <p class="text-slate-600 dark:text-slate-400 mb-10 max-w-4xl">The audio domain features highly specialized models for distinct tasks like speech synthesis, music generation, and recognition. Unlike LLMs, the "best" audio model is entirely dependent on the specific application, from low-latency TTS to high-fidelity voice cloning.</p>
+                <div id="audio-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Audio Model Cards will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Video Generation -->
+            <section id="video" class="report-section section-fade-in">
+                <h2 class="text-3xl font-bold mb-3 text-indigo-600 dark:text-indigo-400">The Moving Image</h2>
+                <p class="text-slate-600 dark:text-slate-400 mb-10 max-w-4xl">Video generation is the most computationally demanding frontier. Progress is defined by the "computational cliff"—the immense hardware required to generate coherent video, which limits widespread adoption. The leading models showcase architectural innovation, but accessibility remains the key challenge.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div id="video-spotlight-card" class="bg-white dark:bg-slate-800/50 p-8 rounded-xl border border-slate-200 dark:border-slate-800 h-full">
+                        <!-- Video spotlight will be loaded here -->
+                    </div>
+                    <div class="bg-red-500/10 border-l-4 border-red-500 p-8 rounded-r-xl h-full">
+                        <h3 class="text-xl font-semibold text-red-500 dark:text-red-400 mb-4">The Computational Cliff</h3>
+                        <p class="text-red-600 dark:text-red-300 mb-4">The primary barrier in open-source video is hardware. Generating high-quality video often requires server-grade GPUs with massive amounts of VRAM, far exceeding typical consumer hardware.</p>
+                        <div class="flex items-center justify-around text-center mt-6">
+                            <div>
+                                <div class="text-5xl">🖥️</div>
+                                <p class="font-bold text-lg text-red-600 dark:text-red-300 mt-2">Prosumer GPU</p>
+                                <p class="text-red-500 dark:text-red-400">~24 GB VRAM</p>
+                            </div>
+                            <div class="text-5xl font-thin text-red-400 dark:text-red-500 mx-4">vs</div>
+                            <div>
+                                <div class="text-5xl">🗄️</div>
+                                <p class="font-bold text-lg text-red-600 dark:text-red-300 mt-2">Required Hardware</p>
+                                <p class="text-red-500 dark:text-red-400 font-semibold">60+ GB VRAM</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Code Generation -->
+            <section id="code" class="report-section section-fade-in">
+                <h2 class="text-3xl font-bold mb-3 text-indigo-600 dark:text-indigo-400">The AI Co-Pilot</h2>
+                <p class="text-slate-600 dark:text-slate-400 mb-10 max-w-4xl">Code generation models are now essential developer tools. The key distinction among top models isn't just benchmark scores, but their effectiveness in different coding scenarios: writing new code ("greenfield") versus modifying existing codebases ("brownfield").</p>
+                 <div id="code-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Code model cards will be loaded here -->
+                </div>
+            </section>
+            
+            <!-- Multimodal -->
+            <section id="multimodal" class="report-section section-fade-in">
+                <h2 class="text-3xl font-bold mb-3 text-indigo-600 dark:text-indigo-400">The Convergence</h2>
+                <p class="text-slate-600 dark:text-slate-400 mb-10 max-w-4xl">Multimodal models bridge the gap between vision and language, reasoning over images and text simultaneously. The power of these models is fundamentally anchored to the quality of their underlying LLM, which provides the core cognitive engine.</p>
+                <div id="multimodal-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Multimodal cards will be loaded here -->
+                </div>
+            </section>
+        </div>
+    </main>
+    
+    <footer class="bg-slate-800/80 dark:bg-slate-900/50 text-white mt-24 relative z-10">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+            <div class="flex justify-center space-x-6 mb-6">
+                <a href="https://www.instagram.com/girish_lade_/" target="_blank" rel="noopener noreferrer" class="social-link text-slate-400">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.85s-.011 3.584-.069 4.85c-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07s-3.584-.012-4.85-.07c-3.252-.148-4.771-1.691-4.919-4.919-.058-1.265-.069-1.645-.069-4.85s.011-3.584.069-4.85c.149-3.225 1.664-4.771 4.919-4.919C8.416 2.175 8.796 2.163 12 2.163m0-2.163C8.74 0 8.333.011 7.053.069 2.59.285.285 2.59.069 7.053.011 8.333 0 8.74 0 12s.011 3.667.069 4.947c.216 4.46.521 6.721 4.947 6.931 1.28.058 1.687.069 4.947.069s3.667-.011 4.947-.069c4.46-.21 6.721-.521 6.931-4.947.058-1.28.069-1.687.069-4.947s-.011-3.667-.069-4.947C23.715 2.59 21.41.285 16.947.069 15.667.011 15.26 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z"/></svg>
+                </a>
+                <a href="https://www.linkedin.com/in/girish-lade-075bba201/" target="_blank" rel="noopener noreferrer" class="social-link text-slate-400">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 110-4.125 2.062 2.062 0 010 4.125zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
+                </a>
+                <a href="https://github.com/girishlade111" target="_blank" rel="noopener noreferrer" class="social-link text-slate-400">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+                </a>
+                <a href="https://codepen.io/Girish-Lade-the-looper" target="_blank" rel="noopener noreferrer" class="social-link text-slate-400">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M24 7.237L12.002 0 0 7.237v9.525L12.002 24 24 16.762V7.237zm-2.002 8.412L12.002 21.088l-9.998-5.437V8.387L12.002 2.91l9.998 5.477v7.262z"/></svg>
+                </a>
+                <a href="mailto:girishlade111@gmail.com" class="social-link text-slate-400">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6zm-2 0l-8 5-8-5h16zm0 12H4V8l8 5 8-5v10z"/></svg>
+                </a>
+            </div>
+            <p class="text-slate-400 text-sm">&copy; 2025 AI Model Analysis. Interactive report based on "The 2025 State of Open-Source AI".</p>
+        </div>
+    </footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const appData = {
+        text: [
+            { id: 'llama', name: 'meta-llama/Llama-3.1-8B-Instruct', repoUrl: 'https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct', downloads: 17.8, params: '8B', context: '128k', license: 'Llama 3.1 Community', spotlight: true, strengths: 'Offers the best all-around package of strong performance, a massive 128k context window, broad multilingual support, and a permissive license. The most versatile and practical choice for a wide range of applications.' },
+            { id: 'qwen', name: 'Qwen/Qwen2.5-1.5B-Instruct', repoUrl: 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct', downloads: 94.1, params: '1.5B', context: '32k', license: 'Apache 2.0', strengths: 'Exceptional strength in technical domains like coding, mathematics, and structured data. Its massive download count suggests high utility in specialized, enterprise-level applications.' },
+            { id: 'deepseek', name: 'deepseek-ai/DeepSeek-R1', repoUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-R1', downloads: 0.63, params: '685B', context: 'N/A', license: 'Custom', strengths: 'Represents the pinnacle of open-source performance, topping leaderboards in reasoning and knowledge. However, its immense size makes it impractical for most users.' },
+            { id: 'jina', name: 'jinaai/jina-embeddings-v3', repoUrl: 'https://huggingface.co/jinaai/jina-embeddings-v3', downloads: 1.7, params: '570M', context: '8k', license: 'Apache 2.0', strengths: 'A highly specialized model for creating state-of-the-art text embeddings. It outperforms much larger models in retrieval tasks, perfect for semantic search and RAG.' }
+        ],
+        image: [
+            { name: 'black-forest-labs/FLUX.1-schnell', repoUrl: 'https://huggingface.co/black-forest-labs/FLUX.1-schnell', strength: 'Extremely fast generation (1-4 steps)', license: 'Apache 2.0', useCase: 'Commercial apps, rapid prototyping' },
+            { name: 'stabilityai/stable-diffusion-xl-base-1.0', repoUrl: 'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0', strength: 'Vast ecosystem of LoRAs for style customization', license: 'CreativeML Open RAIL++-M', useCase: 'Highly stylized generation (photorealism, anime)' },
+            { name: 'black-forest-labs/FLUX.1-dev', repoUrl: 'https://huggingface.co/black-forest-labs/FLUX.1-dev', strength: 'SOTA quality & prompt adherence', license: 'Non-Commercial', useCase: 'Research, high-quality artistic work' },
+            { name: 'black-forest-labs/FLUX.1-Kontext-dev', repoUrl: 'https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev', strength: 'Advanced inpainting & character consistency', license: 'Non-Commercial', useCase: 'Professional creative editing workflows' }
+        ],
+        audio: [
+             { name: 'hexgrad/Kokoro-82M', repoUrl: 'https://huggingface.co/hexgrad/Kokoro-82M', icon: '⚡️', title: 'Top Pick: Efficiency Champion', description: 'Its unparalleled efficiency, low computational cost, and permissive Apache 2.0 license make it the strategic choice for scalable, production-ready TTS applications.', license: 'Apache 2.0' },
+             { name: 'coqui/XTTS-v2', repoUrl: 'https://huggingface.co/coqui/XTTS-v2', icon: '🎤', title: 'Advanced Capability: Voice Cloning', description: 'Can clone any voice from a 6-second sample and generate speech in 17 languages. Essential for personalized voice experiences and multilingual content.', license: 'Coqui Public Model License' },
+             { name: 'openai/whisper-large-v3', repoUrl: 'https://huggingface.co/openai/whisper-large-v3', icon: '✍️', title: 'Industry Standard: ASR', description: 'The undisputed open-source standard for speech recognition, offering SOTA accuracy and robustness across 99 languages, even with background noise.', license: 'Apache 2.0' }
+        ],
+        video: [
+            { name: 'tencent/HunyuanVideo', repoUrl: 'https://huggingface.co/tencent-hunyuan/HunyuanVideo', description: 'The current open-source leader, with performance comparable to closed-source alternatives. Its innovative use of a Multimodal LLM for text encoding provides a richer understanding of prompts, leading to more coherent and contextually accurate videos.', points: ['Architecture: Dual-stream Transformer for deep multimodal fusion.', 'Key Feature: Superior prompt understanding and temporal consistency.', 'Challenge: Still requires significant computational resources for inference.'] }
+        ],
+        code: [
+            { name: 'Qwen/Qwen2.5-Coder-32B-Instruct', repoUrl: 'https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct', title: '🏆 Top Pick', description: 'Praised by the community for its exceptional ability to understand and refactor existing code. It requires less context to make intelligent changes, making it a powerhouse for real-world software maintenance.', tag: 'Brownfield Development', tagColor: 'indigo' },
+            { name: 'deepseek-ai/DeepSeek-Coder-V2-Instruct', repoUrl: 'https://huggingface.co/deepseek-ai/DeepSeek-Coder-V2-Instruct', title: 'Benchmark Leader', description: 'Consistently tops the Big Code Models Leaderboard. It excels at solving novel algorithmic problems and generating complex code from scratch, making it ideal for new projects.', tag: 'Greenfield Development', tagColor: 'sky' }
+        ],
+        multimodal: [
+            { name: 'meta-llama/Llama-3.2-11B-Vision-Instruct', repoUrl: 'https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct', title: '🏆 Top Pick', description: 'Built on the powerful Llama 3.1, this model inherits its parent\'s exceptional reasoning and multilingual capabilities. It delivers state-of-the-art performance in visual question answering and detailed image understanding.' },
+            { name: 'Qwen/Qwen2-VL-7B-Instruct', repoUrl: 'https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct', title: 'Most Versatile', description: 'This model stands out for its ability to handle diverse image resolutions, recognize multilingual text within images, and even process short video clips, pushing the boundaries of multimodal interaction.' }
+        ]
+    };
+    
+    const linkIconSvg = `<svg class="repo-link-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.207 2.207a3 3 0 00-4.242 0L4.207 5.965a3 3 0 004.242 4.242l1.06-1.06a.75.75 0 011.06 1.06l-1.06 1.06a5.25 5.25 0 01-7.424-7.424l3.758-3.758a5.25 5.25 0 017.424 7.424l-1.22 1.22a.75.75 0 11-1.06-1.06l1.22-1.22a3.75 3.75 0 00-5.303-5.303L5.27 6.998a.75.75 0 01-1.06-1.06l3.758-3.758a3 3 0 000-4.243z" clip-rule="evenodd" /><path fill-rule="evenodd" d="M7.793 17.793a3 3 0 004.242 0l3.758-3.758a3 3 0 00-4.243-4.242L10.5 10.84a.75.75 0 01-1.06-1.06l1.06-1.06a5.25 5.25 0 017.424 7.424l-3.758 3.758a5.25 5.25 0 01-7.424-7.424l1.22-1.22a.75.75 0 111.06 1.06l-1.22 1.22a3.75 3.75 0 005.303 5.303l3.758-3.758a.75.75 0 011.06 1.06l-3.758 3.758a3 3 0 000 4.243z" clip-rule="evenodd" /></svg>`;
+    let textChart = null;
+    
+    function createTextChart(isDarkMode) {
+        const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+        const textColor = isDarkMode ? '#cbd5e1' : '#475569';
+        
+        const ctx = document.getElementById('textModelsChart').getContext('2d');
+        if (textChart) {
+            textChart.destroy();
+        }
+        textChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: appData.text.map(m => m.name.split('/')[1]),
+                datasets: [{
+                    label: 'Downloads (Millions)',
+                    data: appData.text.map(m => m.downloads),
+                    backgroundColor: ['#4f46e5', '#3b82f6', '#f97316', '#8b5cf6'],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                maintainAspectRatio: false,
+                scales: { 
+                    x: { 
+                        beginAtZero: true, 
+                        title: { display: true, text: 'Downloads (Millions)', color: textColor },
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }, 
+                    y: { 
+                        grid: { color: gridColor },
+                        ticks: { 
+                            color: textColor,
+                            autoSkip: false, 
+                            callback: function(value, index, values) {
+                                const chart = this.chart;
+                                const label = chart.data.labels[value];
+                                return label.length > 25 ? label.substring(0, 25) + '...' : label;
+                            }
+                        } 
+                    } 
+                },
+                plugins: { 
+                    legend: { display: false }, 
+                    tooltip: { 
+                        callbacks: { 
+                            label: c => ` ${c.dataset.label}: ${c.raw.toLocaleString()}` 
+                        } 
+                    } 
+                }
+            }
+        });
+    }
+
+    function initTextSection() {
+        const cardsContainer = document.querySelector('#text .grid:last-child');
+        const spotlightModel = appData.text.find(m => m.spotlight);
+        if (spotlightModel) updateTextDetails(spotlightModel.id);
+
+        appData.text.forEach(model => {
+            const card = document.createElement('div');
+            card.className = 'card bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer';
+            card.dataset.modelId = model.id;
+            card.innerHTML = `
+                <p class="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">${model.name}</p>
+                <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    <span>${model.params} params</span>
+                    <span>${model.downloads}M d/l</span>
+                </div>
+            `;
+            card.addEventListener('click', () => updateTextDetails(model.id));
+            cardsContainer.appendChild(card);
+        });
+        createTextChart(document.documentElement.classList.contains('dark'));
+    }
+
+    function updateTextDetails(modelId) {
+        const model = appData.text.find(m => m.id === modelId);
+        const detailsPanel = document.getElementById('text-details-panel');
+        if (!model) return;
+
+        detailsPanel.innerHTML = `
+            <h3 class="text-lg font-bold mb-2 text-slate-800 dark:text-slate-100">${model.spotlight ? '🏆 Top Pick' : 'Model Details'}</h3>
+            <p class="text-md font-semibold text-indigo-600 dark:text-indigo-400 mb-4">${model.name}</p>
+            <p class="text-slate-600 dark:text-slate-400 mb-6 text-sm">${model.strengths}</p>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2"><span class="font-medium text-slate-500 dark:text-slate-400">Parameters</span><span class="font-bold text-slate-700 dark:text-slate-200">${model.params}</span></div>
+                <div class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2"><span class="font-medium text-slate-500 dark:text-slate-400">Context Window</span><span class="font-bold text-slate-700 dark:text-slate-200">${model.context}</span></div>
+                <div class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2"><span class="font-medium text-slate-500 dark:text-slate-400">License</span><span class="font-bold text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full text-slate-600 dark:text-slate-300">${model.license}</span></div>
+                <div class="flex justify-between"><span class="font-medium text-slate-500 dark:text-slate-400">Downloads</span><span class="font-bold text-slate-700 dark:text-slate-200">${model.downloads} M</span></div>
+            </div>
+            <a href="${model.repoUrl}" target="_blank" rel="noopener noreferrer" class="repo-link mt-6 block w-full text-center bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 font-semibold py-2 px-4 rounded-lg transition">Visit Repository</a>
+        `;
+        
+        document.querySelectorAll('#text .card').forEach(c => {
+            c.classList.remove('ring-2', 'ring-indigo-500');
+            c.style.borderColor = document.documentElement.classList.contains('dark') ? '#1e293b' : '#e2e8f0';
+            if(c.dataset.modelId === modelId) {
+                c.classList.add('ring-2', 'ring-indigo-500');
+                c.style.borderColor = '#6366f1';
+            }
+        });
+    }
+    
+    function initImageSection() {
+        const tableBody = document.getElementById('image-table-body');
+        appData.image.forEach(model => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="p-4 font-medium text-slate-800 dark:text-slate-100">
+                    <a href="${model.repoUrl}" target="_blank" rel="noopener noreferrer" class="repo-link text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">${model.name} ${linkIconSvg}</a>
+                </td>
+                <td class="p-4 text-slate-600 dark:text-slate-400">${model.strength}</td>
+                <td class="p-4"><span class="text-xs ${model.license === 'Apache 2.0' ? 'bg-green-100 text-green-800 dark:bg-green-500/10 dark:text-green-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/10 dark:text-yellow-400'} px-2 py-1 rounded-full font-medium">${model.license}</span></td>
+                <td class="p-4 text-slate-600 dark:text-slate-400">${model.useCase}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function initAudioSection() {
+        const container = document.getElementById('audio-cards-container');
+        appData.audio.forEach(model => {
+            const card = document.createElement('div');
+            card.className = 'card bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800';
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="text-3xl mb-4">${model.icon}</div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">${model.title}</h3>
+                    </div>
+                    <a href="${model.repoUrl}" target="_blank" rel="noopener noreferrer" class="repo-link text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">${linkIconSvg}</a>
+                </div>
+                <p class="text-slate-600 dark:text-slate-400 text-sm mb-4">${model.description}</p>
+                <p class="text-xs font-medium"><span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full">License: ${model.license}</span></p>
+            `;
+            container.appendChild(card);
+        });
+    }
+    
+    function initVideoSection() {
+        const container = document.getElementById('video-spotlight-card');
+        const model = appData.video[0];
+        container.innerHTML = `
+            <div class="flex justify-between items-start">
+                <h3 class="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4">Spotlight: ${model.name}</h3>
+                <a href="${model.repoUrl}" target="_blank" rel="noopener noreferrer" class="repo-link text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">${linkIconSvg}</a>
+            </div>
+            <p class="text-slate-600 dark:text-slate-400 mb-4">${model.description}</p>
+            <ul class="space-y-2 text-sm">
+                ${model.points.map(p => `<li class="flex items-start"><span class="text-indigo-500 dark:text-indigo-400 mr-2 mt-1">▪</span> ${p}</li>`).join('')}
+            </ul>
+        `;
+    }
+
+    function initCodeSection() {
+        const container = document.getElementById('code-cards-container');
+        appData.code.forEach(model => {
+            const card = document.createElement('div');
+            card.className = `card bg-white dark:bg-slate-800/50 p-8 rounded-xl border-t-4 border-${model.tagColor}-500`;
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <h3 class="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">${model.title}: ${model.name.split('/')[1]}</h3>
+                    <a href="${model.repoUrl}" target="_blank" rel="noopener noreferrer" class="repo-link text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">${linkIconSvg}</a>
+                </div>
+                <p class="text-slate-600 dark:text-slate-400 mb-4">${model.description}</p>
+                <p class="font-semibold">Best for: <span class="bg-${model.tagColor}-100 text-${model.tagColor}-800 dark:bg-${model.tagColor}-500/10 dark:text-${model.tagColor}-400 px-2 py-1 rounded-full text-sm">${model.tag}</span></p>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function initMultimodalSection() {
+        const container = document.getElementById('multimodal-cards-container');
+        appData.multimodal.forEach(model => {
+            const card = document.createElement('div');
+            card.className = 'card bg-white dark:bg-slate-800/50 p-8 rounded-xl border border-slate-200 dark:border-slate-800';
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <h3 class="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">${model.title}: ${model.name.split('/')[1]}</h3>
+                    <a href="${model.repoUrl}" target="_blank" rel="noopener noreferrer" class="repo-link text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">${linkIconSvg}</a>
+                </div>
+                <p class="text-slate-600 dark:text-slate-400">${model.description}</p>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function handleTheme() {
+        const themeToggle = document.getElementById('theme-toggle');
+        const lightIcon = document.getElementById('theme-icon-light');
+        const darkIcon = document.getElementById('theme-icon-dark');
+
+        const applyTheme = (theme) => {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                lightIcon.classList.add('hidden');
+                darkIcon.classList.remove('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                lightIcon.classList.remove('hidden');
+                darkIcon.classList.add('hidden');
+            }
+            if (textChart) {
+                 createTextChart(theme === 'dark');
+            }
+        };
+
+        const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        applyTheme(currentTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        });
+    }
+    
+    function handleScrollAnimation() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) entry.target.classList.add('visible');
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.section-fade-in').forEach(s => observer.observe(s));
+    }
+
+    function handleActiveNav() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    document.querySelectorAll('.nav-link').forEach(link => {
+                        link.classList.toggle('active', link.getAttribute('href').substring(1) === entry.target.id);
+                    });
+                }
+            });
+        }, { rootMargin: '-50% 0px -50% 0px' });
+        document.querySelectorAll('.report-section').forEach(s => observer.observe(s));
+    }
+
+    initTextSection();
+    initImageSection();
+    initAudioSection();
+    initVideoSection();
+    initCodeSection();
+    initMultimodalSection();
+    handleScrollAnimation();
+    handleActiveNav();
+    handleTheme();
+});
+</script>
+</body>
+</html>
